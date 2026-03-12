@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iPod Shuffle — Powered by Open Audio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='15' y='5' width='70' height='90' rx='15' fill='%235eb8e8'/><circle cx='50' cy='45' r='25' fill='%231a1a1a'/><circle cx='50' cy='45' r='10' fill='%232e2e2e'/><polygon points='48,40 48,50 55,45' fill='%23999'/><rect x='30' y='75' width='40' height='5' rx='2' fill='rgba(0,0,0,0.2)'/></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --body-color: #c0c0c0;
+    --body-highlight: #e8e8e8;
+    --body-shadow: #909090;
+    --body-edge: #a0a0a0;
+    --pad-bg: #1a1a1a;
+    --pad-ring: #2a2a2a;
+    --btn-color: #222;
+    --btn-hover: #333;
+    --text-color: #fff;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a1a;
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Shuffle body ── */
+  .shuffle {
+    position: relative;
+    width: 180px;
+    height: 310px;
+    border-radius: 18px;
+    background: linear-gradient(
+      135deg,
+      var(--body-highlight) 0%,
+      var(--body-color) 30%,
+      var(--body-shadow) 100%
+    );
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -1px 0 rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 20px;
+  }
+
+  /* Clip on the back (visible as a ridge on one side) */
+  .shuffle::before {
+    content: '';
+    position: absolute;
+    top: 50px;
+    right: -6px;
+    width: 6px;
+    height: 120px;
+    background: linear-gradient(
+      to right,
+      var(--body-shadow),
+      var(--body-edge)
+    );
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* Status indicator LED */
+  .led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #333;
+    margin-bottom: 8px;
+    transition: background 0.3s;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .led.playing { background: #4cff4c; box-shadow: 0 0 6px #4cff4c, inset 0 1px 2px rgba(0,0,0,0.3); }
+  .led.loading { background: #ffaa00; box-shadow: 0 0 6px #ffaa00, inset 0 1px 2px rgba(0,0,0,0.3); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  /* ── Control pad ── */
+  .controls {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: var(--pad-bg);
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,0.6),
+      0 1px 0 rgba(255,255,255,0.15);
+    margin-top: 10px;
+  }
+
+  /* Center play/pause button */
+  .btn-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #2e2e2e, #1a1a1a);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+    z-index: 2;
+    transition: transform 0.1s;
+  }
+  .btn-center:active { transform: translate(-50%, -50%) scale(0.95); }
+  .btn-center svg { fill: #999; width: 20px; height: 20px; }
+
+  /* Directional buttons */
+  .btn-dir {
+    position: absolute;
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    transition: transform 0.1s;
+  }
+  .btn-dir:active { transform: scale(0.9); }
+  .btn-dir svg { fill: #777; width: 14px; height: 14px; }
+
+  .btn-up    { top: 6px;   left: 50%; transform: translateX(-50%); width: 40px; height: 30px; }
+  .btn-down  { bottom: 6px; left: 50%; transform: translateX(-50%); width: 40px; height: 30px; }
+  .btn-left  { left: 6px;  top: 50%; transform: translateY(-50%); width: 30px; height: 40px; }
+  .btn-right { right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 40px; }
+
+  .btn-up:active    { transform: translateX(-50%) scale(0.9); }
+  .btn-down:active  { transform: translateX(-50%) scale(0.9); }
+  .btn-left:active  { transform: translateY(-50%) scale(0.9); }
+  .btn-right:active { transform: translateY(-50%) scale(0.9); }
+
+  /* ── Track info overlay ── */
+  .track-info {
+    position: absolute;
+    bottom: 24px;
+    left: 0; right: 0;
+    text-align: center;
+    padding: 0 16px;
+  }
+  .track-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+    margin: 0 auto;
+  }
+  .track-artist {
+    font-size: 9px;
+    font-weight: 500;
+    color: rgba(0,0,0,0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    margin: 2px auto 0;
+  }
+
+  /* Voiceover-style tooltip */
+  .voiceover {
+    position: absolute;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .voiceover.show { opacity: 1; }
+
+  /* Volume bar */
+  .volume-bar {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 4px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 2px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .volume-bar.show { opacity: 1; }
+  .volume-fill {
+    height: 100%;
+    background: #fff;
+    border-radius: 2px;
+    transition: width 0.15s;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-top: 32px;
+    text-align: center;
+  }
+  .footer a {
+    color: #666;
+    text-decoration: none;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    transition: color 0.2s;
+  }
+  .footer a:hover { color: #cc44ff; }
+
+  /* ── Artwork bg ── */
+  .bg-art {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-size: cover;
+    background-position: center;
+    filter: blur(60px) brightness(0.3);
+    opacity: 0;
+    transition: opacity 1s, background-image 1s;
+    z-index: -1;
+  }
+  .bg-art.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="bg-art" id="bgArt"></div>
+
+<div class="voiceover" id="voiceover"></div>
+<div class="volume-bar" id="volumeBar">
+  <div class="volume-fill" id="volumeFill" style="width:80%"></div>
+</div>
+
+<div class="shuffle" id="shuffleBody">
+  <div class="led" id="led"></div>
+
+  <div class="controls">
+    <button class="btn-dir btn-up" id="btnVolUp" title="Volume Up">
+      <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(-90 12 12)"/></svg>
+    </button>
+    <button class="btn-dir btn-down" id="btnVolDown" title="Volume Down">
+      <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" transform="rotate(90 12 12)"/></svg>
+    </button>
+    <button class="btn-dir btn-left" id="btnPrev" title="Previous">
+      <svg viewBox="0 0 24 24"><polygon points="6,6 6,18 8,18 8,6"/><polygon points="18,6 8.5,12 18,18"/></svg>
+    </button>
+    <button class="btn-dir btn-right" id="btnNext" title="Next">
+      <svg viewBox="0 0 24 24"><polygon points="16,6 16,18 18,18 18,6"/><polygon points="6,6 15.5,12 6,18"/></svg>
+    </button>
+    <button class="btn-center" id="btnPlay" title="Play/Pause">
+      <svg id="iconPlay" viewBox="0 0 24 24"><polygon points="8,5 19,12 8,19"/></svg>
+      <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+  </div>
+
+  <div class="track-info">
+    <div class="track-title" id="trackTitle">iPod Shuffle</div>
+    <div class="track-artist" id="trackArtist">Press play</div>
+  </div>
+</div>
+
+<div class="footer">
+  <a href="https://audius.co" target="_blank" rel="noopener">Powered by Open Audio</a>
+</div>
+
+<script>
+const API = 'https://api.audius.co/v1'
+
+// ── Color themes (iPod Shuffle 4th gen colors) ──
+const COLORS = [
+  { body: '#c0c0c0', hi: '#e8e8e8', sh: '#909090', edge: '#a0a0a0' }, // silver
+  { body: '#2d2d2f', hi: '#4a4a4c', sh: '#1a1a1c', edge: '#333' },     // space gray
+  { body: '#f5c842', hi: '#ffe066', sh: '#c9a030', edge: '#d4aa30' },   // gold
+  { body: '#e8b4b8', hi: '#f5d0d3', sh: '#c89498', edge: '#d4a0a4' },   // pink
+  { body: '#5eb8e8', hi: '#8ed0f0', sh: '#3a90c0', edge: '#4aa0d0' },   // blue
+  { body: '#7bc67b', hi: '#a0dca0', sh: '#5aa05a', edge: '#68b468' },   // green
+  { body: '#b8a0d8', hi: '#d0c0e8', sh: '#9070b0', edge: '#a088c8' },   // purple
+  { body: '#e84040', hi: '#ff6666', sh: '#c02020', edge: '#d03030' },   // (PRODUCT)RED
+]
+
+function applyColor() {
+  const c = COLORS[Math.floor(Math.random() * COLORS.length)]
+  const el = document.getElementById('shuffleBody')
+  el.style.background = `linear-gradient(135deg, ${c.hi} 0%, ${c.body} 30%, ${c.sh} 100%)`
+  el.querySelector('::before')
+  document.documentElement.style.setProperty('--body-shadow', c.sh)
+  document.documentElement.style.setProperty('--body-edge', c.edge)
+  // Update the clip pseudo-element via CSS variable
+  el.style.setProperty('--clip-shadow', c.sh)
+  el.style.setProperty('--clip-edge', c.edge)
+}
+applyColor()
+
+// ── Image mirror helper ──
+function getImageUrls(artworkObj, size = '480x480') {
+  if (!artworkObj) return []
+  const primary = artworkObj[size] || artworkObj['150x150']
+  if (!primary) return []
+  const mirrors = Array.isArray(artworkObj.mirrors) ? artworkObj.mirrors : []
+  if (!mirrors.length) return [primary]
+  let path
+  try { path = new URL(primary).pathname } catch { return [primary] }
+  return [primary, ...mirrors.map(root => root.replace(/\/$/, '') + path)]
+}
+
+// ── Stream URL with mirror fallback ──
+function getStreamUrls(streamObj) {
+  if (!streamObj) return []
+  const primary = streamObj.url || streamObj
+  if (typeof primary !== 'string') return []
+  const mirrors = Array.isArray(streamObj.mirrors) ? streamObj.mirrors : []
+  if (!mirrors.length) return [primary]
+  let path
+  try { path = new URL(primary).pathname + '?' + new URL(primary).search.slice(1) } catch { return [primary] }
+  return [primary, ...mirrors.map(root => root.replace(/\/$/, '') + path)]
+}
+
+// ── State ──
+let tracks = []
+let queue = []
+let currentIdx = -1
+let audio = new Audio()
+let volume = 0.8
+let isPlaying = false
+audio.volume = volume
+
+const led = document.getElementById('led')
+const titleEl = document.getElementById('trackTitle')
+const artistEl = document.getElementById('trackArtist')
+const voiceover = document.getElementById('voiceover')
+const volumeBar = document.getElementById('volumeBar')
+const volumeFill = document.getElementById('volumeFill')
+const bgArt = document.getElementById('bgArt')
+const iconPlay = document.getElementById('iconPlay')
+const iconPause = document.getElementById('iconPause')
+
+// ── Fetch tracks ──
+async function fetchTracks() {
+  led.className = 'led loading'
+  try {
+    const res = await fetch(`${API}/tracks/trending?limit=50`)
+    const json = await res.json()
+    tracks = json.data || []
+    shuffleArray(tracks)
+    queue = [...tracks]
+  } catch (e) {
+    console.error('Failed to fetch tracks:', e)
+    showVoiceover('Connection error')
+  }
+  led.className = 'led'
+}
+
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+}
+
+// ── Playback ──
+async function playTrack(index) {
+  if (!queue.length) return
+  currentIdx = ((index % queue.length) + queue.length) % queue.length
+  const track = queue[currentIdx]
+
+  titleEl.textContent = track.title || 'Unknown'
+  artistEl.textContent = track.user?.name || 'Unknown Artist'
+  showVoiceover(`${track.title} — ${track.user?.name || ''}`)
+
+  // Background artwork
+  const artUrls = getImageUrls(track.artwork, '480x480')
+  if (artUrls.length) {
+    loadMirrorImage(artUrls, url => {
+      bgArt.style.backgroundImage = `url(${url})`
+      bgArt.classList.add('visible')
+    })
+  }
+
+  // Stream audio with mirror fallback
+  const streamUrls = getStreamUrls(track.stream)
+  if (!streamUrls.length) {
+    showVoiceover('No stream available')
+    return playTrack(currentIdx + 1)
+  }
+
+  led.className = 'led loading'
+  const loaded = await tryStreamUrls(streamUrls)
+  if (!loaded) {
+    showVoiceover('Stream failed, skipping...')
+    return playTrack(currentIdx + 1)
+  }
+
+  audio.play()
+  isPlaying = true
+  led.className = 'led playing'
+  updatePlayIcon()
+}
+
+function tryStreamUrls(urls, idx = 0) {
+  return new Promise(resolve => {
+    if (idx >= urls.length) return resolve(false)
+    audio.src = urls[idx]
+    audio.load()
+
+    const timeout = setTimeout(() => {
+      audio.oncanplaythrough = null
+      audio.onerror = null
+      tryStreamUrls(urls, idx + 1).then(resolve)
+    }, 5000)
+
+    audio.oncanplaythrough = () => {
+      clearTimeout(timeout)
+      audio.oncanplaythrough = null
+      audio.onerror = null
+      resolve(true)
+    }
+    audio.onerror = () => {
+      clearTimeout(timeout)
+      audio.oncanplaythrough = null
+      audio.onerror = null
+      tryStreamUrls(urls, idx + 1).then(resolve)
+    }
+  })
+}
+
+function loadMirrorImage(urls, onSuccess, idx = 0) {
+  if (idx >= urls.length) return
+  const img = new Image()
+  const timeout = setTimeout(() => { img.onload = null; loadMirrorImage(urls, onSuccess, idx + 1) }, 3000)
+  img.onload = () => { clearTimeout(timeout); onSuccess(urls[idx]) }
+  img.onerror = () => { clearTimeout(timeout); loadMirrorImage(urls, onSuccess, idx + 1) }
+  img.src = urls[idx]
+}
+
+audio.addEventListener('ended', () => playTrack(currentIdx + 1))
+
+// ── UI helpers ──
+let voiceoverTimer
+function showVoiceover(text) {
+  voiceover.textContent = text
+  voiceover.classList.add('show')
+  clearTimeout(voiceoverTimer)
+  voiceoverTimer = setTimeout(() => voiceover.classList.remove('show'), 2500)
+}
+
+let volumeTimer
+function showVolume() {
+  volumeFill.style.width = `${volume * 100}%`
+  volumeBar.classList.add('show')
+  clearTimeout(volumeTimer)
+  volumeTimer = setTimeout(() => volumeBar.classList.remove('show'), 1200)
+}
+
+function updatePlayIcon() {
+  iconPlay.style.display = isPlaying ? 'none' : 'block'
+  iconPause.style.display = isPlaying ? 'block' : 'none'
+}
+
+// ── Button handlers ──
+document.getElementById('btnPlay').addEventListener('click', async () => {
+  if (!tracks.length) {
+    await fetchTracks()
+    if (queue.length) playTrack(0)
+    return
+  }
+  if (isPlaying) {
+    audio.pause()
+    isPlaying = false
+    led.className = 'led'
+  } else {
+    if (currentIdx < 0) {
+      playTrack(0)
+    } else {
+      audio.play()
+      isPlaying = true
+      led.className = 'led playing'
+    }
+  }
+  updatePlayIcon()
+})
+
+document.getElementById('btnNext').addEventListener('click', () => {
+  if (!queue.length) return
+  playTrack(currentIdx + 1)
+})
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (!queue.length) return
+  // If more than 3 seconds in, restart; otherwise go previous
+  if (audio.currentTime > 3) {
+    audio.currentTime = 0
+  } else {
+    playTrack(currentIdx - 1)
+  }
+})
+
+document.getElementById('btnVolUp').addEventListener('click', () => {
+  volume = Math.min(1, volume + 0.1)
+  audio.volume = volume
+  showVolume()
+})
+
+document.getElementById('btnVolDown').addEventListener('click', () => {
+  volume = Math.max(0, volume - 0.1)
+  audio.volume = volume
+  showVolume()
+})
+
+// ── Keyboard controls ──
+document.addEventListener('keydown', e => {
+  switch(e.code) {
+    case 'Space':
+      e.preventDefault()
+      document.getElementById('btnPlay').click()
+      break
+    case 'ArrowRight':
+      document.getElementById('btnNext').click()
+      break
+    case 'ArrowLeft':
+      document.getElementById('btnPrev').click()
+      break
+    case 'ArrowUp':
+      e.preventDefault()
+      document.getElementById('btnVolUp').click()
+      break
+    case 'ArrowDown':
+      e.preventDefault()
+      document.getElementById('btnVolDown').click()
+      break
+  }
+})
+
+// Pre-fetch tracks on load
+fetchTracks()
+</script>
+</body>
+</html>
