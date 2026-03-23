@@ -4,7 +4,7 @@
 
 # Shuffle
 
-A visual clone of the 4th generation iPod Shuffle that plays random tracks from the [Open Audio Protocol](https://audius.co).
+A visual clone of the 4th generation iPod Shuffle that plays random tracks from the [Open Audio Protocol](https://openaudio.org).
 
 Picks a random color on every page load. Press play and listen.
 
